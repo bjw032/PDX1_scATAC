@@ -185,71 +185,37 @@ ccans <- generate_ccans(conns)
 links <- ConnectionsToLinks(conns = conns,ccans = ccans)
 Links(hm_aggr_motifs) <- links
 
+VlnPlot(hm_endocrine,features = "MA0132.2",split.by="genotype") #Pdx1 motif accessibility
+VlnPlot(hm_endocrine,features = "MA0107.1",split.by="genotype") #RELA motif accessibility
+
+#### Analysis of beta cells ####
+
+hm_endocrine <- readRDS("hm_endocrine.rds")
+
+hm_endocrine$new_idents <- ifelse(hm_endocrine$seurat_clusters %in% c(0,1,2,4,5,7,8),"beta","alpha")
+
+Mut_b_cells <- colnames(subset(hm_endocrine,genotype=="Mut" & new_idents=="beta"))
+Con_b_cells <- colnames(subset(hm_endocrine,genotype=="Con" & new_idents=="beta"))
+
+hm_endocrine$celltype <- hm_endocrine$seurat_clusters
+hm_endocrine$celltype.dx <- paste(hm_endocrine$celltype, hm_endocrine$genotype, sep = "_")
+dents(hm_endocrine) <- "celltype.dx"
+DefaultAssay(hm_endocrine) <- "peaks"
+ for(f in unique(hm_endocrine$seurat_clusters)){
+   assign(paste0("endo_",f,"_Mut_v_Con"),
+          FindMarkers(
+            object = hm_endocrine,
+            ident.1 = paste0(f,"_","Mut"),
+            ident.2 = paste0(f,"_","Con"),
+            assay="peaks",
+            min.pct = 0.05,
+            test.use = 'LR',logfc.threshold = 0.1,
+            latent.vars = 'peak_region_fragments'
+          ))
+ }
 
 
 
-# 
-# DefaultAssay(hm_endocrine) <- "chromvar"
-# 
-# 
-# FeaturePlot(hm_aggr_motifs,features = "MA0132.2",split.by="genotype",max.cutoff = "q95",min.cutoff = "q05",order =T,pt.size = .5)
-# FeaturePlot(hm_aggr_motifs,features = "MA0107.1",split.by="genotype",max.cutoff = "q95",min.cutoff = "q05",order =T,pt.size = .5)
-# 
-# 
-# FeaturePlot(hm_endocrine,features = "MA0132.2",split.by="genotype",max.cutoff = "q95",min.cutoff = "q05",order =T,pt.size = .5) #pdx1
-# FeaturePlot(hm_endocrine,features = "MA0107.1",split.by="genotype",max.cutoff = "q95",min.cutoff = "q05",order =T,pt.size = .5) #rela
-# 
-# VlnPlot(hm_endocrine,features = "MA0132.2",split.by="genotype")
-# VlnPlot(hm_endocrine,features = "MA0107.1",split.by="genotype")
-# VlnPlot(hm_endocrine,features = "MA0874.1",split.by="genotype")
-# 
-# saveRDS(hm_aggr_motifs,"/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_aggr_motifs_PC.rds")
-# saveRDS(hm_endocrine,"/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_endocrine_motifs_PC.rds")
-# 
-# 
-# hm_endocrine$new_idents <- ifelse(hm_endocrine$seurat_clusters %in% c(0,1,2,4,5,7,8),"beta","alpha")
-# 
-# VlnPlot(hm_endocrine,features = "MA0107.1",split.by="genotype",group.by ="new_idents" )
-# VlnPlot(hm_endocrine,features = "MA0132.2",split.by="genotype",group.by ="new_idents" )
-# 
-# 
-# DimPlot(hm_aggr, reduction = "umap", pt.size = 0.1,label = T) + ggplot2::ggtitle("Harmony integration")
-# 
-# Mut_b_cells <- colnames(subset(hm_endocrine,genotype=="Mut" & new_idents=="beta"))
-# Con_b_cells <- colnames(subset(hm_endocrine,genotype=="Con" & new_idents=="beta"))
-# 
-# 
-# DefaultAssay(hm_endocrine) <- "chromvar"
-# 
-# for(f in 1:8){
-#   assign(paste0("i",0,"_","i",f),
-#          FindMarkers(
-#            object = hm_endocrine,
-#            ident.1 = '0',
-#            ident.2 = f,
-#            min.pct = 0.05,
-#            test.use = 'LR',
-#            latent.vars = 'peak_region_fragments'
-#          ))
-# }
-# 
-# hm_endocrine$celltype <- hm_endocrine$seurat_clusters
-# hm_endocrine$celltype.dx <- paste(hm_endocrine$celltype, hm_endocrine$genotype, sep = "_")
-# Idents(hm_endocrine) <- "celltype.dx"
-# DefaultAssay(hm_endocrine) <- "peaks"
-# for(f in unique(hm_endocrine$seurat_clusters)){
-#   assign(paste0("endo_",f,"_Mut_v_Con"),
-#          FindMarkers(
-#            object = hm_endocrine,
-#            ident.1 = paste0(f,"_","Mut"),
-#            ident.2 = paste0(f,"_","Con"),
-#            assay="peaks",
-#            min.pct = 0.05,
-#            test.use = 'LR',logfc.threshold = 0.1,
-#            latent.vars = 'peak_region_fragments'
-#          ))
-# }
-# 
 # DefaultAssay(hm_endocrine) <- "chromvar"
 # Idents(hm_endocrine)
 # for(f in unique(hm_endocrine$seurat_clusters)){
@@ -400,8 +366,6 @@ DefaultAssay(hm_endocrine) <- "RNA"
 endo_RNA_markers <- FindAllMarkers(hm_endocrine,assay = "RNA",min.pct = .05)
 saveRDS(endo_RNA_markers,"/home/bjw032/Documents/scATAC/01.10.2022_analysis/endo_RNA_markers.rds")
 
-
-
 # all_motif_markers <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/all_motif_markers.rds")
 # all_peak_markers <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/all_peak_markers.rds")
 # all_RNA_markers <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/all_RNA_markers.rds")
@@ -437,60 +401,9 @@ VlnPlot(hm_endocrine,"MA0132.2")
 
 motif.name <- name(pfm_all[features_Mut_v_Con_chromvar])
 
-
 DefaultAssay(hm_endocrine) <- 'peaks'
 hm_endocrine <- ScaleData(hm_endocrine)
 top10 <- endo_peak_markers %>% group_by(cluster) %>% top_n(n = 20, wt = avg_log2FC)
-DoHeatmap(hm_endocrine, features = top10$gene) + scale_fill_gradientn(colors = c("white", "red"))
-
-DoHeatmap(hm_endocrine, assay="peaks",features = top10$gene,group.by = "celltype.dx") + NoLegend()
-DoHeatmap(hm_endocrine, features = top10$gene,group.by = "celltype") + NoLegend()
-rownames(hm_endocrine)
-
-signficance_df <- data.frame(row.names = features_Mut_v_Con_chromvar,
-                             endo_0_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_1_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_2_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_3_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_4_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_5_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_6_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_7_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"],
-                             endo_8_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"p_val_adj"])
-
-
-signficance_log2FC <- data.frame(row.names = features_Mut_v_Con_chromvar,
-                                 endo_0_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_1_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_2_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_3_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_4_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_5_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_6_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_7_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"],
-                                 endo_8_Mut_v_Con_chromvar[features_Mut_v_Con_chromvar,"avg_log2FC"])
-
-
-paletteLength <- 50
-myColor <- colorRampPalette(c("white", "red", "darkred"))(paletteLength)
-# length(breaks) == length(paletteLength) + 1
-# use floor and ceiling to deal with even/odd length pallettelengths
-myBreaks <- c(seq(0, -log10(.05), length.out=ceiling(paletteLength/max(-log10(signficance_df),na.rm = T)) + 1),
-              seq(max(-log10(signficance_df),na.rm = T)/paletteLength, max(-log10(signficance_df),na.rm = T), length.out=floor(paletteLength)))
-pheatmap(-log10(signficance_df),cluster_cols = F,cluster_rows = F,show_colnames = F,
-         color = myColor,breaks = myBreaks)
-
-paletteLength <- 100
-myColor <- colorRampPalette(c("blue", "white", "red"))(paletteLength)
-# length(breaks) == length(paletteLength) + 1
-# use floor and ceiling to deal with even/odd length pallettelengths
-myBreaks <- c(seq(-4, 0, length.out=ceiling(paletteLength/4 + 1)),
-              seq(max(signficance_log2FC,na.rm = T)/paletteLength, max(signficance_log2FC,na.rm = T), length.out=floor(paletteLength)))
-myBreaks <- seq(-4,4, length.out=floor(paletteLength))
-
-pheatmap(signficance_log2FC,cluster_cols = F,cluster_rows = F,show_colnames = F,
-         color = myColor,breaks = myBreaks)
-
 
 # frags <- Fragments(hm_endocrine)  # get list of fragment objects
 # Fragments(hm_endocrine) <- NULL  # remove fragment information from assay
