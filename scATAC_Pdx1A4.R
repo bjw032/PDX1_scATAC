@@ -33,11 +33,13 @@ library(dplyr)
 
 set.seed(1234)
 
-setwd("/home/bjw032/Documents/scATAC/01.10.2022_analysis/")
+setwd("/home/bjw032/Documents/scATAC/01.10.2022_analysis/10X_output/outs")
 
-aggr_counts <- Read10X_h5(filename = "/media/bjw032/seagate/scATAC/Pdx1A4/Pdx1A4_aggr_2/outs/filtered_peak_bc_matrix.h5")
+#set working directory to output of cellranger, there should be an "outs" directory here
+scATAC_wd <- "~/10X_output"
+aggr_counts <- Read10X_h5(filename = "filtered_peak_bc_matrix.h5")
 aggr_metadata <- read.csv(
-  file = "/media/bjw032/seagate/scATAC/Pdx1A4/Pdx1A4_aggr_2/outs/singlecell.csv",
+  file = "singlecell.csv",
   header = TRUE,
   row.names = 1
 )
@@ -46,7 +48,7 @@ aggr_chrom_assay <- CreateChromatinAssay(
   counts = aggr_counts,
   sep = c(":", "-"),
   genome = 'mm10',
-  fragments = '/media/bjw032/seagate/scATAC/Pdx1A4/Pdx1A4_aggr_2/outs/fragments.tsv.gz',
+  fragments = "fragments.tsv.gz",
   min.cells = 10,
   min.features = 200
 )
@@ -59,11 +61,6 @@ aggr_scATAC <- CreateSeuratObject(
 
 # extract gene annotations from EnsDb
 annotations <- GetGRangesFromEnsDb(ensdb = EnsDb.Mmusculus.v79)
-
-#DOESN'T WORK... UCSC IS BROKEN AS OF 7/10/2021#
-# change to UCSC style since the data was mapped to mm10 ...
-seqlevelsStyle(annotations) <- 'UCSC'
-#DOESN'T WORK... UCSC IS BROKEN AS OF 7/10/2021#
 
 # add the gene information to the object
 Annotation(aggr_scATAC) <- annotations
@@ -96,9 +93,6 @@ aggr_scATAC_filt <- subset(
     TSS.enrichment > 2
 )
 
-
-
-# aggr_scATAC_filt <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/aggr_scATAC_filt.rds")
 main.chroms <- standardChromosomes(BSgenome.Mmusculus.UCSC.mm10)
 keep.peaks <- which(as.character(seqnames(granges(aggr_scATAC_filt))) %in% main.chroms)
 aggr_scATAC_filt[["peaks"]] <- subset(aggr_scATAC_filt[["peaks"]], features = rownames(aggr_scATAC_filt[["peaks"]])[keep.peaks])
@@ -111,16 +105,16 @@ aggr_scATAC_filt <- FindNeighbors(object = aggr_scATAC_filt, reduction = 'lsi', 
 aggr_scATAC_filt <- FindClusters(object = aggr_scATAC_filt, verbose = FALSE, algorithm = 3)
 aggr_scATAC_filt$dataset <- gsub(pattern = "..*.-","",colnames(aggr_scATAC_filt))
 aggr_scATAC_filt$genotype <- ifelse(aggr_scATAC_filt$dataset < 3,yes = "Con",no="Mut")
+
+#Replicates from each genotype were run across two separate collections, AKA "days". 
 aggr_scATAC_filt$day <- ifelse(aggr_scATAC_filt$dataset == 1 | aggr_scATAC_filt$dataset == 3,yes = 1,no=2)
 
 umap = cbind("Barcode" = rownames(Embeddings(object = aggr_scATAC_filt, reduction = "umap")), Embeddings(object = aggr_scATAC_filt, reduction = "umap"))
-write.table(umap, file="/media/bjw032/seagate/scATAC/Pdx1A4/Pdx1A4_aggr_2/umap.csv", sep = ",", quote = F, row.names = F, col.names = T)
+write.table(umap, file="umap.csv", sep = ",", quote = F, row.names = F, col.names = T)
 cell.idents <- data.frame(barcode=umap[,1],
                           id=Idents(aggr_scATAC_filt))
-write.csv(cell.idents,file = "/home/bjw032/Documents/scATAC/01.10.2022_analysis/aggr_scATAC_filt.idents.csv",quote = F,row.names = F)
+write.csv(cell.idents,file = "aggr_scATAC_filt.idents.csv",quote = F,row.names = F)
 
-DimPlot(object = aggr_scATAC_filt, split.by = "day",label = TRUE)# + NoLegend()
-DimPlot(object = aggr_scATAC_filt, split.by = "dataset",label = TRUE)# + NoLegend()
 DimPlot(object = aggr_scATAC_filt, split.by = "genotype",label = TRUE)# + NoLegend()
 
 aggr_scATAC_filt_gene.actvities <- GeneActivity(aggr_scATAC_filt)
@@ -131,14 +125,6 @@ aggr_scATAC_filt <- NormalizeData(
   normalization.method = 'LogNormalize',
   scale.factor = median(aggr_scATAC_filt$nCount_RNA)
 )
-
-FeaturePlot(aggr_scATAC_filt,"Ins1",split.by="genotype",max.cutoff = "q95",order =T,pt.size = .5)
-DotPlot(aggr_scATAC_filt,assay = "RNA","Ins1",split.by = "genotype",cols = c("grey","red"), dot.scale = 7) + RotatedAxis()
-p_Con <- DotPlot(subset(aggr_scATAC_filt,genotype=="Con"),assay = "RNA","Mafa",cols = c("grey","red"), dot.scale = 7,scale.max = 30,scale.min = 20,col.min = -1.5,col.max = 2) + RotatedAxis()
-p_Mut <- DotPlot(subset(aggr_scATAC_filt,genotype=="Mut"),assay = "RNA","Mafa",cols = c("grey","red"), dot.scale = 7,scale.max = 30,scale.min = 20,col.min = -1.5,col.max = 2) + RotatedAxis()
-plot_grid(p_Con, p_Mut)
-#saveRDS(aggr_scATAC_filt,file = "/home/bjw032/Documents/scATAC/01.10.2022_analysis/aggr_scATAC_filt.rds")
-#aggr_scATAC_filt <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/aggr_scATAC_filt.rds")
 
 hm_aggr <- RunHarmony(
   object = aggr_scATAC_filt,
@@ -153,33 +139,14 @@ hm_aggr <- hm_aggr %>%
   FindClusters(resolution = 0.5) %>%
   identity()
 
-DimPlot(hm_aggr, reduction = "umap", pt.size = 0.1,label = T) + ggplot2::ggtitle("Harmony integration")
-
 umap <- cbind("Barcode" = rownames(Embeddings(object = hm_aggr, reduction = "umap")), Embeddings(object = hm_aggr, reduction = "umap"))
-write.table(umap, file="/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_aggr_umap.csv", sep = ",", quote = F, row.names = F, col.names = T)
+write.table(umap, file="hm_aggr_umap.csv", sep = ",", quote = F, row.names = F, col.names = T)
 cell.idents <- data.frame(barcode=umap[,1],
                           id=Idents(hm_aggr))
-write.csv(cell.idents,file = "/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_aggr_cell.idents.csv",quote = F,row.names = F)
-
-# FeaturePlot(hm_aggr,"Ins1",max.cutoff = "q95",order = T,split.by="genotype",pt.size = .5)
-# FeaturePlot(hm_aggr,"Gcg",max.cutoff = "q95",order = T,split.by="genotype",pt.size = .5,)
-# 
-# FeaturePlot(hm_aggr,"Pdx1",order = T,split.by="genotype",pt.size = .5,cols = c("Light Grey","Black"),keep.scale = "all")
-# 
-# FeaturePlot(hm_aggr,"Pdx1",order = T,split.by="genotype",pt.size = .5,
-#             cols = c("Light Grey","Black"), keep.scale = "all")
-# FeaturePlot(hm_aggr,"Pdx1",order = T,split.by="genotype",max.cutoff = "q95",pt.size = .5,cols = c("Light Grey","Black"),)
-# FeaturePlot(hm_aggr,"Ins2",order = T,split.by="genotype",max.cutoff = "q95",pt.size = .5,cols = c("Light Grey","Black"),)
-# 
-# 
-# FeaturePlot(subset(hm_aggr,genotype=="Con"),"Pdx1",max.cutoff = "q95",order = T,pt.size = .5,cols = c("Light Grey","Black"),keep.scale = "all")
-# FeaturePlot(subset(hm_aggr,genotype=="Mut"),"Pdx1",max.cutoff = "q95",order = T,pt.size = .5,cols = c("Light Grey","Black"),keep.scale = "all")
-# DimPlot(hm_aggr, reduction = "umap", pt.size = 0.1) + ggplot2::ggtitle("Harmony integration",label = T)
-# DimPlot(hm_aggr, reduction = "umap", pt.size = 0.1,label = T) + ggplot2::ggtitle("Harmony integration")
+write.csv(cell.idents,file = "hm_aggr_cell.idents.csv",quote = F,row.names = F)
 
 #### Motif Analysis ####
 
-#hm_aggr_motifs <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_aggr_motifs.rds")
 pfm_human <- getMatrixSet(
   x = JASPAR2020,
   opts = list(species = 9606, all_versions = F)
@@ -190,8 +157,6 @@ pfm_mouse <- getMatrixSet(
   opts = list(species = 10090, all_versions = F)
 )
 
-# pfm_pdx1 <- PFMatrixList(getMatrixByID(JASPAR2020, ID="MA0132.1"))
-
 pfm_all <- c(pfm_human,pfm_mouse)
 
 DefaultAssay(hm_aggr) <- 'peaks'
@@ -200,23 +165,17 @@ hm_aggr_motifs <- AddMotifs(
   genome = BSgenome.Mmusculus.UCSC.mm10,
   pfm = pfm_all
 )
-#### Start
-# saveRDS(hm_aggr_motifs,"/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_aggr_motifs.rds")
-# hm_aggr_motifs <- readRDS("/home/bjw032/Documents/scATAC/01.10.2022_analysis/hm_aggr_motifs.rds")
-DimPlot(hm_aggr_motifs)
 
+#### ChromVAR and Cicero analysis #### 
 hm_aggr_motifs <- RunChromVAR(
   object = hm_aggr_motifs,
   genome = BSgenome.Mmusculus.UCSC.mm10
 )
 
-
 umap = cbind("Barcode" = rownames(Embeddings(object = hm_aggr_motifs, reduction = "umap")), Embeddings(object = hm_aggr_motifs, reduction = "umap"))
 hm_aggr_motifs$umap_1 <- as.numeric(umap[,2])
 hm_aggr_motifs$umap_2 <- as.numeric(umap[,3])
 
-#hm_aggr@meta.data <- hm_aggr@meta.data[colnames(hm_aggr),]
-#DefaultAssay(hm_aggr) <- "peaks"
 hm_aggr_cds <- as.CellDataSet(x = hm_aggr)
 hm_aggr_cicero <- make_cicero_cds(hm_aggr_cds, reduced_coordinates = cbind(hm_aggr_motifs$umap_1,hm_aggr_motifs$umap_2))
 genome <- seqlengths(hm_aggr)
@@ -226,10 +185,8 @@ ccans <- generate_ccans(conns)
 links <- ConnectionsToLinks(conns = conns,ccans = ccans)
 Links(hm_aggr_motifs) <- links
 
-DimPlot(hm_aggr_motifs)
 
-DimPlot(hm_aggr_motifs, reduction = "umap", pt.size = 0.1,label = T) + ggplot2::ggtitle("Harmony integration")
-DimPlot(hm_endocrine, reduction = "umap", pt.size = 0.1,label = T) + ggplot2::ggtitle("Harmony integration")
+
 
 # 
 # DefaultAssay(hm_endocrine) <- "chromvar"
